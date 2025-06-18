@@ -1,0 +1,30 @@
+{
+  "sources": [
+    {
+      "name": "36氪",
+      "url": "https://www.36kr.com/feed",
+      "keywords": ["AI", "人工智能", "机器学习", "ChatGPT", "大模型", "科技", "创新"],
+      "exclude_keywords": ["广告", "推广", "软文"],
+      "max_items": 20
+    },
+    {
+      "name": "虎嗅网",
+      "url": "https://www.huxiu.com/rss/0.xml",
+      "keywords": ["科技", "商业", "创新", "AI", "人工智能", "创业"],
+      "exclude_keywords": ["广告", "推广"],
+      "max_items": 15
+    },
+    {
+      "name": "爱范儿",
+      "url": "https://www.ifanr.com/feed",
+      "keywords": ["科技", "数码", "AI", "人工智能", "创新"],
+      "exclude_keywords": ["广告", "推广"],
+      "max_items": 15
+    }
+  ],
+  "global_settings": {
+    "max_daily_items": 50,
+    "timezone": "Asia/Shanghai",
+    "language": "zh-CN"
+  }
+} 

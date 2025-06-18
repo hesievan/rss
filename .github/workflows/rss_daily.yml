@@ -1,0 +1,57 @@
+name: RSS 日报推送
+
+on:
+  schedule:
+    # 每天上午 9:00 执行（北京时间）
+    - cron: '0 1 * * *'
+  workflow_dispatch:
+    # 允许手动触发
+
+jobs:
+  generate-and-send:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: 检出代码
+      uses: actions/checkout@v4
+      
+    - name: 设置 Python 环境
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+        
+    - name: 安装依赖
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        
+    - name: 创建必要目录
+      run: |
+        mkdir -p logs reports
+        
+    - name: 生成并发送日报
+      env:
+        FEISHU_WEBHOOK_URL: https://www.feishu.cn/flow/api/trigger-webhook/18d944beda7772e52c8e326e34b40da0
+      run: |
+        cd src
+        python main.py
+        
+    - name: 上传日志文件
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: rss-daily-logs
+        path: |
+          logs/
+          reports/
+        retention-days: 7
+        
+    - name: 发送失败通知
+      if: failure()
+      uses: 8398a7/action-slack@v3
+      with:
+        status: ${{ job.status }}
+        channel: '#rss-daily'
+        webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }} 
