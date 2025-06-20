@@ -6,6 +6,7 @@ import jieba
 import logging
 from typing import List, Dict, Any
 from datetime import datetime
+from word_group_parser import WordGroupParser
 
 class ContentFilter:
     """新闻内容筛选模块"""
@@ -152,6 +153,46 @@ class ContentFilter:
         self.logger.info(f"按优先级关键词排序完成")
         
         return sorted_articles
+
+    def filter_by_groups(self, articles: List[Dict[str, Any]], groups: List[Dict[str, List[str]]]) -> List[Dict]:
+        """
+        按分组过滤并统计文章。
+        返回每个分组的命中文章列表和分组配置。
+        [{
+            'group': group_config,
+            'matched_articles': [...]
+        }, ...]
+        """
+        results = []
+        for group in groups:
+            matched = []
+            for article in articles:
+                if self._match_group(article, group):
+                    matched.append(article)
+            results.append({'group': group, 'matched_articles': matched})
+        return results
+
+    def _match_group(self, article: Dict[str, Any], group: Dict[str, List[str]]) -> bool:
+        """判断文章是否命中分组"""
+        title = article.get('title', '').lower()
+        summary = article.get('summary', '').lower()
+        content = f"{title} {summary}"
+        # 1. 必须全部包含 must_keywords
+        for must_kw in group.get('must_keywords', []):
+            if must_kw.lower() not in content:
+                return False
+        # 2. 不能包含 exclude_keywords
+        for ex_kw in group.get('exclude_keywords', []):
+            if ex_kw.lower() in content:
+                return False
+        # 3. 至少包含一个普通关键词
+        if group.get('keywords'):
+            for kw in group['keywords']:
+                if kw.lower() in content:
+                    return True
+            return False
+        # 如果没有普通关键词，只要 must_keywords 满足即可
+        return True
 
 if __name__ == "__main__":
     # 测试代码

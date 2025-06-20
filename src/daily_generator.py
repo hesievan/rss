@@ -6,6 +6,7 @@ import logging
 from datetime import datetime
 from typing import List, Dict, Any
 from collections import defaultdict
+from word_group_parser import WordGroupParser
 
 class DailyGenerator:
     """日报生成模块"""
@@ -50,7 +51,7 @@ class DailyGenerator:
     def _generate_summary(self, articles: List[Dict[str, Any]]) -> str:
         """生成日报摘要"""
         total_articles = len(articles)
-        sources = set(article['source'] for article in articles)
+        sources = set(article.get('source', '') for article in articles)
         
         summary = f"今日共筛选出 {total_articles} 篇重要资讯，"
         summary += f"来自 {len(sources)} 个信息源。"
@@ -77,9 +78,9 @@ class DailyGenerator:
             
             for article in articles:
                 article_item = {
-                    'title': article['title'],
-                    'link': article['link'],
-                    'published': article['published'].strftime('%H:%M'),
+                    'title': article.get('title', ''),
+                    'link': article.get('link', ''),
+                    'published': article.get('published').strftime('%H:%M') if article.get('published') else '',
                     'summary': self._truncate_summary(article.get('summary', ''), 100)
                 }
                 section['articles'].append(article_item)
@@ -94,9 +95,11 @@ class DailyGenerator:
         hours = defaultdict(int)
         
         for article in articles:
-            sources[article['source']] += 1
-            hour = article['published'].hour
-            hours[f"{hour:02d}:00"] += 1
+            sources[article.get('source', '')] += 1
+            published = article.get('published')
+            if published:
+                hour = published.hour
+                hours[f"{hour:02d}:00"] += 1
         
         return {
             'total_articles': len(articles),
@@ -204,6 +207,56 @@ class DailyGenerator:
         except Exception as e:
             self.logger.error(f"保存报告失败: {e}")
             return ""
+    
+    def generate_trendar_style_report(self, group_results: list) -> str:
+        """
+        生成 TrendRadar 风格的分组统计文本。
+        group_results: ContentFilter.filter_by_groups 的输出
+        """
+        lines = []
+        for idx, group_result in enumerate(group_results, 1):
+            group = group_result['group']
+            articles = group_result['matched_articles']
+            # 组描述
+            desc = []
+            desc += group.get('keywords', [])
+            desc += [f"+{w}" for w in group.get('must_keywords', [])]
+            desc += [f"!{w}" for w in group.get('exclude_keywords', [])]
+            desc_str = '、'.join(desc)
+            lines.append(f"🔥 {desc_str} : {len(articles)} 条\n")
+            # 组内文章统计
+            # 按来源+标题去重+统计出现次数
+            stat_map = {}
+            for art in articles:
+                key = (art.get('source', ''), art.get('title', ''))
+                if key not in stat_map:
+                    stat_map[key] = {
+                        'article': art,
+                        'count': 1,
+                        'first_time': art.get('published'),
+                        'last_time': art.get('published')
+                    }
+                else:
+                    stat_map[key]['count'] += 1
+                    # 更新时间范围
+                    if art.get('published') < stat_map[key]['first_time']:
+                        stat_map[key]['first_time'] = art.get('published')
+                    if art.get('published') > stat_map[key]['last_time']:
+                        stat_map[key]['last_time'] = art.get('published')
+            # 排序：出现次数多、时间新优先
+            stat_list = sorted(stat_map.values(), key=lambda x: (-x['count'], x['first_time']))
+            for i, stat in enumerate(stat_list, 1):
+                art = stat['article']
+                src = art.get('source', '')
+                title = art.get('title', '')
+                # 时间格式
+                ft = stat['first_time'].strftime('%H:%M') if stat['first_time'] else ''
+                lt = stat['last_time'].strftime('%H:%M') if stat['last_time'] else ''
+                time_str = f"{ft}" if ft == lt else f"{ft} ~ {lt}"
+                count_str = f"({stat['count']}次)" if stat['count'] > 1 else ''
+                lines.append(f"  {i}. [{src}] {title} - {time_str} {count_str}")
+            lines.append("")
+        return '\n'.join(lines)
 
 if __name__ == "__main__":
     # 测试代码

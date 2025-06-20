@@ -9,6 +9,7 @@ from datetime import datetime, timedelta
 from typing import List, Dict, Any
 import time
 import random
+import os
 
 class RSSFetcher:
     """RSS 数据获取模块"""
@@ -31,6 +32,9 @@ class RSSFetcher:
     def _load_config(self) -> Dict[str, Any]:
         """加载配置文件"""
         try:
+            if not os.path.exists(self.config_file):
+                self.logger.error(f"配置文件不存在: {self.config_file}")
+                return {"sources": [], "global_settings": {}}
             with open(self.config_file, 'r', encoding='utf-8') as f:
                 return json.load(f)
         except Exception as e:
@@ -66,12 +70,12 @@ class RSSFetcher:
                     elif hasattr(entry, 'updated_parsed') and entry.updated_parsed:
                         published_time = datetime(*entry.updated_parsed[:6])
                     else:
-                        published_time = datetime.now()
+                        published_time = None
                     
                     article = {
                         'title': entry.title,
                         'link': entry.link,
-                        'published': published_time,
+                        'published': published_time if published_time else datetime.now(),
                         'summary': getattr(entry, 'summary', ''),
                         'source': source['name'],
                         'source_url': source['url']
